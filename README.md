@@ -1,6 +1,6 @@
-# React Redux State Persist
+# React RTK State Persist
 
-Purpose of this project is to demo ways to persist redux state like:
+Purpose of this project is to demo ways to persist redux state to following places:
 
     * Local Store
     * Session Store
