@@ -108,7 +108,7 @@ const rootReducer = (additionalReducers) => combineReducers({
 })
 
 const middlewares = (getDefaultMiddleware) =>
-getDefaultMiddleware(defaultMiddlewareOptions).concat(rehydrateFilter, reduxImmutableStateInvariant())
+getDefaultMiddleware(defaultMiddlewareOptions).concat(logger, rehydrateFilter, reduxImmutableStateInvariant())
 
 
 export const store = configureStore({
