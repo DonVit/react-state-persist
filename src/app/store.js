@@ -1,24 +1,28 @@
-import { configureStore,applyMiddleware } from "@reduxjs/toolkit";
-import { composeWithDevToolsLogOnlyInProduction, composeWithDevTools, composeWithDevToolsDevelopmentOnly } from "@redux-devtools/extension";
-import { combineReducers } from 'redux-seamless-immutable'
+import { configureStore, applyMiddleware } from "@reduxjs/toolkit";
+import {
+  composeWithDevToolsLogOnlyInProduction,
+  composeWithDevTools,
+  composeWithDevToolsDevelopmentOnly,
+} from "@redux-devtools/extension";
+import { combineReducers } from "redux-seamless-immutable";
 import counterReducer from "../features/counter/counterSlice";
 import nameReducer from "../features/name/nameSlice";
 import ageReducer from "../features/age/ageSlice";
 import gradeReducer from "../features/grade/gradeSlice";
 import storage from "redux-persist/lib/storage";
-import storageSession from 'redux-persist/lib/storage/session'
-import { CookieStorage } from 'redux-persist-cookie-storage'
-import Cookies from 'cookies-js'
-import reduxImmutableStateInvariant from 'redux-immutable-state-invariant'
-import hardSet from 'redux-persist/lib/stateReconciler/hardSet'
-import autoMergeLevel2 from 'redux-persist/lib/stateReconciler/autoMergeLevel2'
-import { mapObjIndexed} from 'ramda'
-import registerFilter from './register-filter'
-import rehydrateFilter from './rehydrate-filter'
+import storageSession from "redux-persist/lib/storage/session";
+import { CookieStorage } from "redux-persist-cookie-storage";
+import Cookies from "cookies-js";
+import reduxImmutableStateInvariant from "redux-immutable-state-invariant";
+import hardSet from "redux-persist/lib/stateReconciler/hardSet";
+import autoMergeLevel2 from "redux-persist/lib/stateReconciler/autoMergeLevel2";
+import { mapObjIndexed } from "ramda";
+import registerFilter from "./register-filter";
+import rehydrateFilter from "./rehydrate-filter";
 import blacklist from "./blacklist";
-import tempReducer from "./reducer"
+import tempReducer from "./reducer";
 
-import logger from 'redux-logger'
+import logger from "redux-logger";
 import {
   persistReducer,
   persistStore,
@@ -30,11 +34,10 @@ import {
   REGISTER,
 } from "redux-persist";
 
-const mapReducers = mapObjIndexed(combineReducers)
+const mapReducers = mapObjIndexed(combineReducers);
 
-var { hostname } = window.location
-var subdomain = hostname.split('.')[0]
-
+var { hostname } = window.location;
+var subdomain = hostname.split(".")[0];
 
 const defaultMiddlewareOptions = {
   thunk: false,
@@ -42,19 +45,28 @@ const defaultMiddlewareOptions = {
   serializableCheck: {
     ignoredActions: [FLUSH, REHYDRATE, PAUSE, PERSIST, PURGE, REGISTER],
   },
-}
+};
 
 const enhanceWithDevTools = composeWithDevToolsDevelopmentOnly({
   actionsDenylist: blacklist,
   name: `channel-shell-${subdomain}`,
   maxAge: 200,
-})
+});
 
 const localPersistConfig = {
   key: "local",
   storage,
   stateReconciler: autoMergeLevel2,
   debug: true,
+  version: 1, // version of persisted reducer
+  migrate: (state, version) => {
+    const {
+      _persist: { version: persistedVersion },
+    } = state;
+    
+    // return here the state depending on reducer version, persisted version and persisted state
+    return Promise.resolve(state);
+  },
 };
 
 const dynamicLocalPersistConfig = {
@@ -75,41 +87,54 @@ const cookiesPersistConfig = {
 };
 
 const intermediaryReducer = (config, baseReducer) => {
-  const { key } = config
+  const { key } = config;
   const newReducer = (state, action) => {
-    if ((action.type==='WS') && (action.key === key)) {
-      return action.payload ? {
-        ...state,
-        ...action.payload,
-      } : baseReducer(undefined, action)
+    if (action.type === "WS" && action.key === key) {
+      return action.payload
+        ? {
+            ...state,
+            ...action.payload,
+          }
+        : baseReducer(undefined, action);
     }
-    return baseReducer(state, action)
-  }
+    return baseReducer(state, action);
+  };
 
   return persistReducer(config, newReducer);
-}
+};
 
-const counterPersistedReducer = intermediaryReducer(localPersistConfig, counterReducer);
-const namePersistedReducer = intermediaryReducer(sessionPersistConfig, nameReducer)
-const agePersistedReducer = intermediaryReducer(cookiesPersistConfig, ageReducer)
+const counterPersistedReducer = intermediaryReducer(
+  localPersistConfig,
+  counterReducer
+);
+const namePersistedReducer = intermediaryReducer(
+  sessionPersistConfig,
+  nameReducer
+);
+const agePersistedReducer = intermediaryReducer(
+  cookiesPersistConfig,
+  ageReducer
+);
 
-
-
-const staticReducers = ({
+const staticReducers = {
   counter: counterPersistedReducer,
   name: namePersistedReducer,
   age: agePersistedReducer,
   grade: gradeReducer,
-})
+};
 
-const rootReducer = (additionalReducers) => combineReducers({ 
-  ...staticReducers,
-  ...additionalReducers,
-})
+const rootReducer = (additionalReducers) =>
+  combineReducers({
+    ...staticReducers,
+    ...additionalReducers,
+  });
 
 const middlewares = (getDefaultMiddleware) =>
-getDefaultMiddleware(defaultMiddlewareOptions).concat(logger, rehydrateFilter, reduxImmutableStateInvariant())
-
+  getDefaultMiddleware(defaultMiddlewareOptions).concat(
+    logger,
+    rehydrateFilter,
+    reduxImmutableStateInvariant()
+  );
 
 export const store = configureStore({
   reducer: rootReducer(),
@@ -123,8 +148,6 @@ export const store = configureStore({
 //     ignoredActions: [FLUSH, REHYDRATE, PAUSE, PERSIST, PURGE, REGISTER],
 //   },
 // }).concat(logger, reduxImmutableStateInvariant())
-
-
 
 // export const store2 = configureStore({
 //   reducer: rootReducer(),
@@ -149,10 +172,14 @@ export const store = configureStore({
 
 // export const persistorStore = persistStore(store);
 
-export const persistorStore = persistStore(store,{
-  enhancer: applyMiddleware(registerFilter, rehydrateFilter, logger),
-  manualPersist: false,
-}, ()=>console.error('hydrated'));
+export const persistorStore = persistStore(
+  store,
+  {
+    enhancer: applyMiddleware(registerFilter, rehydrateFilter, logger),
+    manualPersist: false,
+  },
+  () => console.error("hydrated")
+);
 
 // const getPersistorStore = () => persistStore(store,{
 //   enhancer: applyMiddleware(registerFilter, rehydrateFilter, logger),
@@ -165,29 +192,31 @@ export const persistorStore = persistStore(store,{
 
 // recreatePersistorStore()
 
-const getRandom = () => Math.round(Math.random()*1000)
-store.additionalReducers = {}
+const getRandom = () => Math.round(Math.random() * 1000);
+store.additionalReducers = {};
 
-
-const key1Reducer = (state={value:''}, action) => {
+const key1Reducer = (state = { value: "" }, action) => {
   switch (action.type) {
-    case 'addReducerValue':
-      return { value: action.payload }
+    case "addReducerValue":
+      return { value: action.payload };
     default:
-      return state
+      return state;
   }
-}
+};
 
-const dynamicReducer = (state={value:''}, action) => {
+const dynamicReducer = (state = { value: "" }, action) => {
   switch (action.type) {
-    case 'addReducerValue':
-      return { value: action.payload }
+    case "addReducerValue":
+      return { value: action.payload };
     default:
-      return state
+      return state;
   }
-}
+};
 
-const dynamicPersistedReducer = intermediaryReducer(dynamicLocalPersistConfig, dynamicReducer)
+const dynamicPersistedReducer = intermediaryReducer(
+  dynamicLocalPersistConfig,
+  dynamicReducer
+);
 
 store.injectReducer = (key, additionalReducer) => {
   // store.additionalReducers['client'] = {
@@ -195,23 +224,21 @@ store.injectReducer = (key, additionalReducer) => {
   //   [key]: additionalReducer
   // }
 
-  store.additionalReducers['client'] = {
-    [`test_${getRandom()}`]: dynamicPersistedReducer
-  }
+  store.additionalReducers["client"] = {
+    [`test_${getRandom()}`]: dynamicPersistedReducer,
+  };
 
-  const rd = (s={},a)=>s
-  const mapedReducers = mapReducers({...store.additionalReducers })
-  const newReducers = rootReducer(mapedReducers)
-  store.replaceReducer(newReducers)
+  const rd = (s = {}, a) => s;
+  const mapedReducers = mapReducers({ ...store.additionalReducers });
+  const newReducers = rootReducer(mapedReducers);
+  store.replaceReducer(newReducers);
   // persistorStore.persist()
-}
-
+};
 
 export const addReducer = (key, additionalReducer) => {
   // additionalReducers[key]=additionalReducer
-  store.injectReducer(key, additionalReducer)
+  store.injectReducer(key, additionalReducer);
   //persistorStore.persist()
+};
 
-}
-
-// generate watch file change functiion 
+// generate watch file change functiion
